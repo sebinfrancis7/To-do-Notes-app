@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class EmailSignupScreen extends StatefulWidget {
   @override
@@ -13,6 +14,8 @@ final TextEditingController _passwordController = TextEditingController();
 final TextEditingController _passwordControllerFinal = TextEditingController();
 
 final FirebaseAuth _auth = FirebaseAuth.instance;
+
+final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
 class _EmailSignupScreenState extends State<EmailSignupScreen> {
   @override
@@ -105,6 +108,7 @@ class _EmailSignupScreenState extends State<EmailSignupScreen> {
             .createUserWithEmailAndPassword(
                 email: emailText, password: passwordText)
             .then((user) => {
+                  // firestore.collection("users").add(data);
                   showDialog(
                       context: context,
                       builder: (context) {

@@ -42,6 +42,8 @@ class _PhoneSignInState extends State<PhoneSignIn> {
             ),
             _isOtpSent
                 ? Container(
+                    padding: EdgeInsets.all(10),
+                    margin: EdgeInsets.only(top: 30),
                     child: TextField(
                       controller: _otpController,
                       decoration: InputDecoration(
@@ -68,7 +70,7 @@ class _PhoneSignInState extends State<PhoneSignIn> {
                         ),
                       ),
                       onPressed: () {
-                        _verifyPhoneNumber();
+                        _verifyOtp();
                       },
                       child: Center(
                         child: Text("Verify OTP"),
@@ -90,6 +92,7 @@ class _PhoneSignInState extends State<PhoneSignIn> {
                       onPressed: () {
                         setState(() {
                           _isOtpSent = true;
+                          _verifyPhoneNumber();
                         });
                       },
                       child: Center(
@@ -105,34 +108,67 @@ class _PhoneSignInState extends State<PhoneSignIn> {
 
   void _verifyPhoneNumber() async {
     setState(() {
-          _message = "";
+      _message = "";
+    });
+
+    final PhoneVerificationCompleted verificationCompleted =
+        (PhoneAuthCredential credential) async {
+      await _auth.signInWithCredential(credential);
+      setState(() {
+        _message = 'Received Phone Auth Credential: $credential';
+      });
+    };
+
+    final PhoneVerificationFailed verificationFailed =
+        (FirebaseAuthException e) async {
+      if (e.code == 'invalid-phone-number') {
+        setState(() {
+          _message = 'Please provide a valid Phone Number';
         });
-
-    final PhoneVerificationCompleted verificationCompleted = (PhoneAuthCredential credential) async {
-      await _auth.signInWithCredential(credential);
+      } else {
+        setState(() {
+          _message =
+              'Phone Number verification failed. Code: ${e.code}. Message: ${e.message}';
+        });
+      }
     };
 
-    final PhoneVerificationFailed verificationFailed = (FirebaseAuthException e) async {
-          if (e.code == 'invalid-phone-number') {
-            setState(() {
-                    
-                        });
-    }
+    final PhoneCodeSent codeSent =
+        (String verificationId, int resendToken) async {
+      _verificationId = verificationId;
     };
 
-    final PhoneCodeSent codeSent = (PhoneAuthCredential credential) async {
-      await _auth.signInWithCredential(credential);
-    };
-
-    final PhoneCodeAutoRetrievalTimeout codeAutoRetrievalTimeout = (PhoneAuthCredential credential) async {
-      await _auth.signInWithCredential(credential);
+    final PhoneCodeAutoRetrievalTimeout codeAutoRetrievalTimeout =
+        (String verificationId) async {
+      _verificationId = verificationId;
     };
 
     await _auth.verifyPhoneNumber(
-      phoneNumber: phoneNumber,
-      verificationCompleted: verificationCompleted,
-      verificationFailed: verificationFailed,
-      codeSent: codeSent,
-      codeAutoRetrievalTimeout: codeAutoRetrievalTimeout)
-  } 
+        phoneNumber: _phoneNumber.phoneNumber,
+        timeout: Duration(seconds: 120),
+        verificationCompleted: verificationCompleted,
+        verificationFailed: verificationFailed,
+        codeSent: codeSent,
+        codeAutoRetrievalTimeout: codeAutoRetrievalTimeout);
+  }
+
+  void _verifyOtp() async {
+    final PhoneAuthCredential credential = PhoneAuthProvider.credential(
+        verificationId: _verificationId, smsCode: _otpController.text);
+
+    final AuthCredential = await _auth.signInWithCredential(credential);
+
+    if (AuthCredential?.user != null) {
+      setState(() {
+        _message =
+            'Successfully Signed-In. User ID: ${AuthCredential.user.uid}';
+      });
+      print(_message);
+    } else {
+      setState(() {
+        _message = 'Sign-In failed';
+      });
+      print(_message);
+    }
+  }
 }
