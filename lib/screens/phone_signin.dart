@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl_phone_number_input/intl_phone_number_input.dart';
 
 class PhoneSignIn extends StatefulWidget {
@@ -13,6 +14,7 @@ String _verificationId;
 bool _isOtpSent = false;
 
 final FirebaseAuth _auth = FirebaseAuth.instance;
+final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 final TextEditingController _otpController = TextEditingController();
 
 class _PhoneSignInState extends State<PhoneSignIn> {
@@ -156,19 +158,21 @@ class _PhoneSignInState extends State<PhoneSignIn> {
     final PhoneAuthCredential credential = PhoneAuthProvider.credential(
         verificationId: _verificationId, smsCode: _otpController.text);
 
-    final AuthCredential = await _auth.signInWithCredential(credential);
+    final authCredential = await _auth.signInWithCredential(credential);
 
-    if (AuthCredential?.user != null) {
+    if (authCredential?.user != null) {
       setState(() {
         _message =
-            'Successfully Signed-In. User ID: ${AuthCredential.user.uid}';
+            'Successfully Signed-In. User ID: ${authCredential.user.uid}';
       });
-      print(_message);
+      _firestore.collection("users").doc(authCredential.user.uid).set({
+        "phone_number": authCredential.user.phoneNumber,
+        "lastseen": DateTime.now(),
+      });
     } else {
       setState(() {
         _message = 'Sign-In failed';
       });
-      print(_message);
     }
   }
 }

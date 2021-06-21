@@ -15,7 +15,7 @@ final TextEditingController _passwordControllerFinal = TextEditingController();
 
 final FirebaseAuth _auth = FirebaseAuth.instance;
 
-final FirebaseFirestore firestore = FirebaseFirestore.instance;
+final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
 class _EmailSignupScreenState extends State<EmailSignupScreen> {
   @override
@@ -108,7 +108,10 @@ class _EmailSignupScreenState extends State<EmailSignupScreen> {
             .createUserWithEmailAndPassword(
                 email: emailText, password: passwordText)
             .then((user) => {
-                  // firestore.collection("users").add(data);
+                  _firestore.collection("users").doc(user.user.uid).set({
+                    "email": user.user.email,
+                    "lastseen": DateTime.now(),
+                  }),
                   showDialog(
                       context: context,
                       builder: (context) {
@@ -128,6 +131,7 @@ class _EmailSignupScreenState extends State<EmailSignupScreen> {
                         );
                       })
                 })
+            // ignore: return_of_invalid_type_from_catch_error
             .catchError((e) => {
                   showDialog(
                       context: context,
@@ -169,7 +173,6 @@ class _EmailSignupScreenState extends State<EmailSignupScreen> {
                 actions: <Widget>[
                   TextButton(
                       onPressed: () {
-                        _emailController.text = "";
                         _passwordController.text = "";
                         _passwordControllerFinal.text = "";
                         Navigator.of(context).pop();

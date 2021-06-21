@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:to_do_application/screens/email_signup.dart';
 import 'package:to_do_application/screens/phone_signin.dart';
@@ -15,13 +16,11 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: [
-      'email',
-      'https://www.googleapis.com/auth/contacts.readonly',
-    ],
+    scopes: ['email'],
   );
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           children: <Widget>[
             Container(
-              margin: EdgeInsets.only(top: 80),
+              margin: EdgeInsets.only(top: 40),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(50),
                 child: Image.asset(
@@ -40,13 +39,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   height: 200,
                   fit: BoxFit.fill,
                 ),
-              ),
-            ),
-            Container(
-              margin: EdgeInsets.only(top: 30),
-              child: Text(
-                "Login",
-                style: TextStyle(fontSize: 30),
               ),
             ),
             Container(
@@ -176,6 +168,10 @@ class _LoginScreenState extends State<LoginScreen> {
       _auth
           .signInWithEmailAndPassword(email: emailText, password: passwordText)
           .then((user) => {
+                _firestore.collection("users").doc(user.user.uid).set({
+                  "email": user.user.email,
+                  "lastseen": DateTime.now(),
+                }),
                 showDialog(
                     context: context,
                     builder: (context) {
@@ -193,7 +189,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: Text("OK")),
                         ],
                       );
-                    })
+                    }),
               })
           .catchError((e) {
         showDialog(
@@ -253,25 +249,41 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _signInGoogle() async {
     try {
-      await _googleSignIn.signIn();
-      showDialog(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: Text("Success"),
-              content: Text("Successfully logged-in with Google"),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
-              actions: <Widget>[
-                TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: Text("OK")),
-              ],
-            );
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser != null) {
+        final googleAuth = await googleUser.authentication;
+        if (googleAuth.idToken != null) {
+          final userCredential = await _auth.signInWithCredential(
+              GoogleAuthProvider.credential(
+                  idToken: googleAuth.idToken,
+                  accessToken: googleAuth.accessToken));
+          _firestore.collection("users").doc(googleUser.id).set({
+            "email": googleUser.email,
+            "lastseen": DateTime.now(),
           });
+          showDialog(
+              context: context,
+              builder: (context) {
+                return AlertDialog(
+                  title: Text("Success"),
+                  content: Text("Successfully logged-in with Google"),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  actions: <Widget>[
+                    TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        child: Text("OK")),
+                  ],
+                );
+              });
+        }
+      } else {
+        throw FirebaseAuthException(
+            message: "Sign-In aborted", code: "ERROR_ABORTED_BY_USER");
+      }
     } catch (error) {
       showDialog(
           context: context,
